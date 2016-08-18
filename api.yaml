@@ -1,0 +1,2534 @@
+swagger: '2.0'
+info:
+  version: 1.0.0
+  title: Flume Application API
+  description: "Flume's API for application interaction with the backend. \n## Structure\n### Envelope\nEvery response is contained by an envelope. Each response has a predictable set of keys with which you can expect to interact with. <b>The route definitions indicate what the 'data' field will contain. They do not indicate what the meta fields will be  populated with. </b>\n```json\n{\n  \"success\": true,\n  \"code\": 602,\n  \"message\": Request OK,\n  \"status_code\": 200,\n  \"status_message\": \"OK\",\n  \"detailed\": null,\n  \n  \"data\" : [\n    \n    ...\n    \n  ],\n  \n  \"count\": integer, \n  \"pagination\": {\n    \"next\": \"urlToNext\",\n    \"prev\": \"urlToPrev\"\n  }\n}\n```\n### Meta Fields\nThe success field returns whether the operation was successful or not. The code field is the API code returned by the call. A list of codes can be found in the 'Messages' sub section of Constants & lists. The message field is the string representation of the API code. The status_code represents the HTTP status_code from the operation This is present in case the user is accessing the API not using HTTP. The status_message is the name of th status_code. The detailed message contains an array of human readable error messages for what went wrong. This will always be null on succcess. \n```json\n{\n  \"success\": false,\n  \"code\": 150,\n  \"message\": Caller does not have access to the information requested,\n  \"status_code\": 403,\n  \"status_message\": \"Forbidden\",\n  \"detailed\": [\"You do not have the access permissions to access this route!\"]\n}\n\n{\n  \"success\": false,\n  \"code\": 94,\n  \"message\": A provided parameter failed validation, \n  \"status_code\": 400,\n  \"status_message\": \"Bad Request\",\n  \"detailed\": [\"You must provide a valid email.\", \"First name must be between 0 and 16 characters\"]\n}\n```\n#### Status Codes\nThe possible status codes are the following:\n\n\n<b>200 OK</b> - Successful operation. Is returned with a message body. \n\n<b>201 Created</b> - Successful creation of an object.\n\n<b>401 Unauthorized</b> - User doesn't have the required permission to view specific data.\n\n<b>403 Forbidden</b> - User does not have access to the information requested.\n\n<b>400 Bad Request</b> - Malformatted request sent to the server.\n\n<b>404 Not Found</b> - Request not found.\n\n<b>500 Internal Server Error</b> - Issue detected on the server.\n\n\n### Data\nThe data field contains the meat of the response. The data field always returns an array, even if there is a single object returned. The paths in the following documentation only display the data part of the envelope.\n### Pagination\n The count field contains the total amount of records in existence for the route. The pagination object contains convenient links to get the next and prev data if a call to a GET request exceeds the limit in the query parameter. For example if the call is limited to 300 results in the data objects. But there are 500 total results. The first call would return the first 300 and a link to get the next 200. \n### PUT, POST, & PATCH\nPUT, POST & PATCH requests will set the location header of the value that was modified or added. There will be no data in the response.\n### Authentication\n The authentication returns a [JWT Token](https://jwt.io/). The decoded payload of the token will contain the user's email address, id and user type. The token will expire after 7 days at which point you will need to authenticate again. <b> This token needs to be supplied for all routes</b> as either (A) in a 'X-Access-Token' header (B) in the request body with key 'token' or (C) in the request query with key 'token'\n"
+host: 'api.staging.flumetech.com'
+basePath: /
+schemes:
+  - https
+consumes:
+  - application/json
+produces:
+  - application/json
+parameters:
+  user_id:
+    name: user_id
+    in: path
+    description: The user identifier number
+    type: integer
+    required: true
+  device_id:
+    name: device_id
+    in: path
+    description: The device identifier number
+    type: integer
+    required: true
+  service_provider_id:
+    name: service_provider_id
+    in: path
+    description: The service provider identifier number
+    type: integer
+    required: true
+  rate_group_id:
+    name: rate_group_id
+    in: path
+    description: The rate group identifier number
+    type: integer
+    required: true
+  rate_id:
+    name: rate_id
+    in: path
+    description: The rate identifier number
+    type: integer
+    required: true
+  service_cycle_id:
+    name: service_cycle_id
+    in: path
+    description: The rate identifier number
+    type: integer
+    required: true
+  expression_id:
+    name: expression_id
+    in: path
+    description: The expression identifier id
+    required: true
+    type: string
+  firmware_id:
+    name: firmware_id
+    in: path
+    description: The firmware identifier id
+    type: string
+  hardware_id:
+    name: hardware_id
+    in: path
+    description: The hardware identifier id
+    type: string
+  limit:
+    name: limit
+    in: query
+    description: Maximum number of results to return.
+    default: 50
+    required: false
+    type: integer
+  offset:
+    name: offset
+    in: query
+    description: Offset of results to return.
+    default: 0
+    required: false
+    type: integer
+  sort_field:
+    name: sort_field
+    in: query
+    description: Field to sort on
+    required: false
+    type: string
+  sort_direction:
+    name: sort_direction
+    in: query
+    description: Ascending and descending supported. Which way to sort the provided sort_field paramater.
+    required: false
+    default: ASC
+    enum:
+      - ASC
+      - DESC
+    type: string
+  since_datetime:
+    name: since_datetime
+    in: query
+    required: false
+    description: Restrict the data to results since this datetime.
+    type: string
+    format: date-time
+  until_datetime:
+    name: until_datetime
+    in: query
+    required: false
+    description: Restrict the data to results until this datetime.
+    type: string
+    format: date-time
+tags:
+  - name: Beta App
+    description: Routes with this tag are implemented and will be used by the beta application.
+  - name: Beta App In Progress
+    description: Routes with this tag will be used by the beta application.
+  - name: Admin
+    description: Routes with this tag are implemented and will be used by admin.
+  - name: Admin In Progress
+    description: Routes with this tag will be used by admin.
+  - name: Not Used
+    description: Routes with this will eventually be used or implemented
+paths:
+  /authenticate:
+    post:
+      summary: Authenticate a user.
+      description: Authenticate a user. Returns a JWT token to be used for all routes. See Authenticate notes for more info.
+      operationId: authenticate
+      tags:
+        - Beta App
+      parameters:
+        - name: user
+          in: body
+          description: User to add to the system
+          required: true
+          schema:
+            $ref: '#/definitions/user_authenticate'
+      responses:
+        '200':
+          description: Valid JWT
+          schema:
+            type: string
+  /firmware:
+    get:
+      description: Returns the currently defined firmware profiles
+      operationId: getFirmwareProfiles
+      tags:
+        - Admin
+      produces:
+        - application/json
+      parameters:
+        - $ref: '#/parameters/limit'
+        - $ref: '#/parameters/offset'
+        - $ref: '#/parameters/sort_field'
+        - $ref: '#/parameters/sort_direction'
+        - name: device_type
+          in: query
+          required: false
+          description: 'Return firmware profiles of only this device_type. (<a href="/constants.php?device_types" target="_new">Device Types</a>)'
+          type: integer
+      responses:
+        '200':
+          description: Firmware profile response
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/firmware'
+    post:
+      description: Creates a new firmware profile to be applied to newly provisioned devices.
+      operationId: addFirmwareProfile
+      tags:
+        - Admin
+      parameters:
+        - name: profile
+          in: body
+          description: A new firmware profile object
+          required: true
+          schema:
+            $ref: '#/deinitions/firmware'
+      responses:
+        '201':
+          description: Firmware profile successfully added
+          headers:
+            location:
+              description: Path to newly created firmware profile
+              type: string
+  '/firmware/{firmware_id}':
+    parameters:
+      - $ref: '#/parameters/firmware_id'
+    get:
+      description: Returns the firmware profile identified by firmware_id
+      operationId: getFirmwareProfile
+      tags:
+        - Admin
+      responses:
+        '200':
+          description: Firmware profile response
+          schema:
+            $ref: '#/definitions/firmware'
+    patch:
+      description: Updates the firmware profile identified by the firmware_id
+      operationId: updateFirmwareProfile
+      tags:
+        - Admin
+        - Admin In Progress
+      parameters:
+        - name: profile
+          in: body
+          description: An updated firmware profile
+          required: true
+          schema:
+            $ref: '#/definitions/firmware'
+      responses:
+        '200':
+          description: Firmware profile successfully updated
+          headers:
+            location:
+              description: Path to newly updated firmware profile
+              type: string
+  /hardware:
+    get:
+      description: Returns the currently defined hardware profiles
+      operationId: getHardwareProfiles
+      tags:
+        - Admin In Progress
+      produces:
+        - application/json
+      parameters:
+        - $ref: '#/parameters/limit'
+        - $ref: '#/parameters/offset'
+        - $ref: '#/parameters/sort_field'
+        - $ref: '#/parameters/sort_direction'
+        - name: device_type
+          in: query
+          required: false
+          description: 'Return hardware profiles of only this device_type. (<a href="/constants.php?device_types" target="_new">Device Types</a>)'
+          type: integer
+      responses:
+        '200':
+          description: Hardware profile response
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/hardware'
+    post:
+      description: Creates a new hardware profile to be applied to newly provisioned devices.
+      operationId: addHardwareProfile
+      tags:
+        - Admin In Progress
+      parameters:
+        - name: profile
+          in: body
+          description: A new hardware profile object
+          required: true
+          schema:
+            $ref: '#/deinitions/hardware'
+      responses:
+        '201':
+          description: Hardware profile successfully added
+          headers:
+            location:
+              description: Path to newly created hardware profile
+              type: string
+  '/hardware/{firmware_id}':
+    parameters:
+      - $ref: '#/parameters/hardware_id'
+    get:
+      description: Returns the hardware profile identified by hardware_id
+      operationId: getHardwareProfile
+      tags:
+        - Admin In Progress
+      responses:
+        '200':
+          description: Hardware profile response
+          schema:
+            $ref: '#/definitions/hardware'
+    patch:
+      description: Updates the hardware profile identified by the hardware_id
+      operationId: updateHardwareProfile
+      tags:
+        - Admin In Progress
+      parameters:
+        - name: hardware
+          in: body
+          description: An updated hardware profile
+          required: true
+          schema:
+            $ref: '#/definitions/hardware'
+      responses:
+        '200':
+          description: Hardware profile successfully updated
+          headers:
+            location:
+              description: Path to newly updated hardware profile
+              type: string
+  /users:
+    get:
+      summary: Returns all users.
+      description: Returns all users.
+      operationId: getUsers
+      tags:
+        - Admin
+      produces:
+        - application/json
+      parameters:
+        - $ref: '#/parameters/limit'
+        - $ref: '#/parameters/offset'
+        - $ref: '#/parameters/sort_field'
+        - $ref: '#/parameters/sort_direction'
+      responses:
+        '200':
+          description: User response
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/user'
+    post:
+      summary: Creates a new user.
+      description: Creates a new user.
+      operationId: addUser
+      tags:
+        - Admin
+      produces:
+        - application/json
+      parameters:
+        - name: user
+          in: body
+          description: User to add to the system
+          required: true
+          schema:
+            $ref: '#/definitions/user_new'
+      responses:
+        '201':
+          description: User successfully added
+          headers:
+            location:
+              description: Path to newly created user
+              type: string
+  '/users/{user_id}':
+    parameters:
+      - $ref: '#/parameters/user_id'
+    get:
+      summary: "Returns a user's basic information."
+      description: "Returns a user's basic information."
+      operationId: getUserById
+      tags:
+        - Beta App
+      produces:
+        - application/json
+      responses:
+        '200':
+          description: User response
+          schema:
+            $ref: '#/definitions/user'
+    patch:
+      summary: "Update a user's basic information."
+      description: "Update a user's basic information."
+      operationId: updateUser
+      tags:
+        - Admin
+      produces:
+        - application/json
+      parameters:
+        - name: user
+          in: body
+          description: Update the user to the one provided
+          required: true
+          schema:
+            $ref: '#/definitions/user_patch'
+      responses:
+        '200':
+          description: User successfully updated
+          headers:
+            location:
+              description: Path to newly updated user
+              type: string
+    delete:
+      summary: Delete a user.
+      description: Delete a user.
+      operationId: deleteUser
+      tags:
+        - Admin In Progress
+      responses:
+        '200':
+          description: User deleted
+  '/users/{user_id}/devices':
+    parameters:
+      - $ref: '#/parameters/user_id'
+    get:
+      summary: Returns the devices associated with a user.
+      description: Returns the devices associated with a user.
+      operationId: getUserDevices
+      tags:
+        - Beta App
+      produces:
+        - application/json
+      parameters:
+        - $ref: '#/parameters/sort_field'
+        - $ref: '#/parameters/sort_direction'
+      responses:
+        '200':
+          description: User devices response
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/device'
+    post:
+      summary: Associates an existing device to a user.
+      description: Associates an existing device to a user.
+      operationId: addUserDevice
+      tags:
+        - Admin
+      produces:
+        - application/json
+      parameters:
+        - name: device_id
+          in: body
+          required: true
+          description: Device to associate with the user
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Device successfully added to user
+          headers:
+            location:
+              description: Path to newly associated device
+              type: string
+  '/users/{user_id}/devices/{device_id}':
+    parameters:
+      - $ref: '#/parameters/user_id'
+      - $ref: '#/parameters/device_id'
+    get:
+      summary: "Returns a user's specific device."
+      description: "Returns a user's specific device."
+      operationId: getUserDeviceById
+      tags:
+        - Beta App
+      produces:
+        - application/json
+      responses:
+        '200':
+          description: User device response
+          schema:
+            $ref: '#/definitions/device'
+    patch:
+      summary: "Update a device's settings or expressions"
+      description: "Update a device's settings or expressions. Right now can only update settings fields. NOTE: user_id cannot be updated with this route"
+      operationId: updateUserDevice
+      tags:
+        - Beta App
+      produces:
+        - application/json
+      parameters:
+        - name: device
+          in: body
+          description: Update the device
+          required: true
+          schema:
+            type: object
+            properties:
+              user:
+                $ref: '#/definitions/device_user_settings'
+      responses:
+        '200':
+          description: Device successfully updated
+          headers:
+            location:
+              description: Path to newly updated user device
+              type: string
+    delete:
+      summary: Removes the associates between a user and a device.
+      description: Removes the associates between a user and a device.
+      operationId: deleteUserDevice
+      tags:
+        - Admin In Progress
+      responses:
+        '200':
+          description: Device deleted
+  '/users/{user_id}/devices/{device_id}/calibrate':
+    parameters:
+      - $ref: '#/parameters/user_id'
+      - $ref: '#/parameters/device_id'
+    get:
+      summary: Get current calibrate structure/object and/or state for this device_id
+      description: Get current calibrate structure/object and/or state for this device_id
+      operationId: getUserDeviceCalibration
+      tags:
+        - Admin
+      produces:
+        - application/json
+      responses:
+        '200':
+          description: Device calibration response
+          schema:
+            $ref: '#/definitions/calibrate'
+    post:
+      summary: Starts or restarts calibration of a device
+      description: Initialize a calibration object for a device. This does not start a calibration.
+      operationId: postUserDeviceCalibration
+      tags:
+        - Admin
+      produces:
+        - application/json
+      responses:
+        '201':
+          description: Success initializing calibration
+    patch:
+      summary: 'Send an event to the calibrate object, water_off, peak_start or peak_stop'
+      description: 'Send an event to the calibrate object, water_off, peak_start, peak_stop or peak_save'
+      tags:
+        - Admin
+      parameters:
+        - name: event
+          in: query
+          description: The calibrate event name reflecting the event that occurred
+          required: true
+          type: string
+          enum:
+            - WATER_OFF
+            - PEAK_START
+            - PEAK_STOP
+            - PEAK_SAVE
+        - name: gallons_filled
+          in: query
+          description: If provided use this value to indicate gallons filled overriding UNIT_MULTIPLIER_VOLUME of 1.0
+          required: false
+          type: float
+      produces:
+        - application/json
+      responses:
+        '200':
+          description: Calibration process successfully updated
+  '/users/{user_id}/devices/{device_id}/query':
+    parameters:
+      - $ref: '#/parameters/user_id'
+      - $ref: '#/parameters/device_id'
+    post:
+      summary: Query sensor data for a device.
+      description: Query sensor data for a device. Ignore pagination and count for now.
+      operationId: queryUserDevice
+      tags:
+        - Beta App
+      produces:
+        - application/json
+      parameters:
+        - name: queries
+          in: body
+          description: An array of queries to be executed.
+          required: true
+          schema:
+            $ref: '#/definitions/queries'
+      responses:
+        '200':
+          description: Query results response
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/query_result'
+  '/users/{user_id}/devices/{device_id}/service_cycles':
+    parameters:
+      - $ref: '#/parameters/user_id'
+      - $ref: '#/parameters/device_id'
+    get:
+      summary: Get the service cylce associated with this device
+      description: Get the service cylce associated with this device
+      operationId: getUserDeviceServiceCycle
+      tags:
+        - Admin
+      produces:
+        - application/json
+      responses:
+        '200':
+          description: Service cycle response
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/service_cycle'
+  '/users/{user_id}/devices/{device_id}/service_periods':
+    parameters:
+      - $ref: '#/parameters/user_id'
+      - $ref: '#/parameters/device_id'
+    get:
+      summary: Get usage and time frame for the current service period.
+      description: 'Get usage and time frame for the current service period. Right now you can only get the current service period, this will most likely change in the future.'
+      operationId: getUserDeviceServicePeriods
+      tags:
+        - Beta App
+      produces:
+        - application/json
+      responses:
+        '200':
+          description: Service period response
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/service_period'
+  '/users/{user_id}/devices/{device_id}/rates':
+    parameters:
+      - $ref: '#/parameters/user_id'
+      - $ref: '#/parameters/device_id'
+      - $ref: '#/parameters/sort_field'
+      - $ref: '#/parameters/sort_direction'
+      - $ref: '#/parameters/limit'
+      - $ref: '#/parameters/offset'
+    get:
+      summary: Returns the payment tiers for a device.
+      description: 'Returns the payment tiers for a device. If a device has no service provider, this will return nothing. The tiers will be sorted by start_amount.'
+      operationId: getUserDeviceTiers
+      tags:
+        - Admin
+      produces:
+        - application/json
+      responses:
+        '200':
+          description: Tier response
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/device_rates'
+  '/users/{user_id}/notifications':
+    get:
+      summary: "Returns the user's notifications."
+      description: "Returns the user's notifications."
+      operationId: getUserNotifications
+      tags:
+        - Admin In Progress
+      produces:
+        - application/json
+      parameters:
+        - $ref: '#/parameters/user_id'
+        - $ref: '#/parameters/since_datetime'
+        - $ref: '#/parameters/until_datetime'
+        - $ref: '#/parameters/sort_field'
+        - $ref: '#/parameters/sort_direction'
+        - name: device_id
+          in: query
+          required: false
+          description: 'Return notifications for provided ids, if not included, returns all notifications'
+          type: integer
+        - name: severity
+          in: query
+          required: false
+          description: 'Return notifications for provided severity (info, warning, danger)'
+          type: string
+        - name: read
+          in: query
+          required: false
+          description: 'Return notifications for read status (read, not read)'
+          type: string
+      responses:
+        '200':
+          description: User notifications response
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/notification'
+  /expressions:
+    get:
+      description: Returns the currently defined global expressions
+      operationId: getGlobalExpressions
+      tags:
+        - Admin
+      responses:
+        default:
+          description: Default response and array of expression objects
+          schema:
+            $ref: '#/definitions/expressions'
+    post:
+      description: Creates a new global expression to be applied to newly provisioned devices
+      operationId: addGlobalExpression
+      tags:
+        - Admin
+      parameters:
+        - name: expression
+          in: body
+          description: A new expression object
+          required: true
+          schema:
+            $ref: '#/definitions/expression'
+      responses:
+        '200':
+          description: Expression successfully added
+  '/expressions/{expression_id}':
+    parameters:
+      - $ref: '#/parameters/expression_id'
+    get:
+      description: Returns the global expression identified by expression_id
+      operationId: getGlobalExpression
+      tags:
+        - Admin
+      responses:
+        default:
+          description: Default response and array of expression objects
+          schema:
+            $ref: '#/definitions/expression'
+    put:
+      description: Updates the expression identified by expression_id
+      operationId: updateGlobalExpression
+      tags:
+        - Admin
+      parameters:
+        - name: expression
+          in: body
+          description: An updated expression object
+          required: true
+          schema:
+            $ref: '#/definitions/expression'
+      responses:
+        '200':
+          description: Expressions successfully added
+    delete:
+      description: Deletes the expression identified by expression_id
+      operationId: deleteGlobalExpression
+      tags:
+        - Admin
+      responses:
+        '200':
+          description: Successfully deleted global expression
+  /devices:
+    get:
+      summary: Returns all devices.
+      description: Returns all devices.
+      operationId: getDevices
+      tags:
+        - Admin
+      produces:
+        - application/json
+      parameters:
+        - $ref: '#/parameters/limit'
+        - $ref: '#/parameters/offset'
+        - $ref: '#/parameters/sort_field'
+        - $ref: '#/parameters/sort_direction'
+        - name: user_id
+          in: query
+          required: false
+          description: 'Return devices for provided id, if not included, returns all devices'
+          type: integer
+      responses:
+        '200':
+          description: Device response
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/device_admin'
+    post:
+      summary: Creates a new device.
+      description: Creates a new device. Associates the device with a user if a user_id is provided. If not the device is associated with Flume.
+      operationId: addDevice
+      tags:
+        - Admin In Progress
+      produces:
+        - application/json
+      parameters:
+        - name: device
+          in: body
+          description: Device to add to the system
+          required: true
+          schema:
+            $ref: '#/definitions/device_new'
+      responses:
+        '201':
+          description: Device successfully created
+          headers:
+            location:
+              description: Path to newly created device
+              type: string
+  /devices/query:
+    post:
+      summary: Query sensor data over all devices.
+      description: Query sensor data over all devices. After beta this call will filter by location and device type.
+      operationId: queryAllDevices
+      tags:
+        - Beta App
+      produces:
+        - application/json
+      parameters:
+        - name: queries
+          in: body
+          description: An array of queries to be executed.
+          required: true
+          schema:
+            $ref: '#/definitions/queries'
+      responses:
+        '200':
+          description: Query results response
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/query_result'
+  /devices/commands:
+    post:
+      description: Send commands to one or more devices
+      operationId: postDevicesCommands
+      tags:
+        - Admin
+      parameters:
+        - name: commands
+          in: body
+          description: An array of queries to be executed.
+          required: true
+          schema:
+            $ref: '#/definitions/commands'
+      responses:
+        '200':
+          description: Commands successfully added
+  '/devices/{device_id}':
+    parameters:
+      - $ref: '#/parameters/device_id'
+    get:
+      summary: "Returns a device's basic information."
+      description: "Returns a device's basic information"
+      operationId: getDeviceById
+      tags:
+        - Admin
+      produces:
+        - application/json
+      responses:
+        '200':
+          description: Device response
+          schema:
+            $ref: '#/definitions/device_admin'
+    patch:
+      summary: "Update a device's settings or expressions"
+      description: "Update a device's settings or expressions. NOTE: user_id cannot be updated with this route"
+      operationId: updateDevice
+      tags:
+        - Admin
+      produces:
+        - application/json
+      parameters:
+        - name: device
+          in: body
+          description: Update the device
+          required: true
+          schema:
+            type: object
+            properties:
+              user:
+                $ref: '#/definitions/device_user_settings'
+              settings:
+                $ref: '#/definitions/settings'
+      responses:
+        '200':
+          description: Device successfully updated
+          headers:
+            location:
+              description: Path to newly updated device
+              type: string
+    delete:
+      summary: Deletes a device.
+      description: Deletes a device.
+      operationId: deleteDevice
+      tags:
+        - Admin
+      responses:
+        '200':
+          description: Device deleted
+  '/devices/{device_id}/query':
+    parameters:
+      - $ref: '#/parameters/device_id'
+    post:
+      summary: Query sensor data for a device.
+      description: Query sensor data for a device. Ignore pagination and count for now.
+      operationId: queryDevice
+      tags:
+        - Admin
+      produces:
+        - application/json
+      parameters:
+        - name: queries
+          in: body
+          description: An array of queries to be executed.
+          required: true
+          schema:
+            $ref: '#/definitions/queries'
+      responses:
+        '200':
+          description: Query results response
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/query_result'
+  '/devices/{device_id}/rates':
+    parameters:
+      - $ref: '#/parameters/device_id'
+      - $ref: '#/parameters/sort_field'
+      - $ref: '#/parameters/sort_direction'
+      - $ref: '#/parameters/limit'
+      - $ref: '#/parameters/offset'
+    get:
+      summary: Returns the payment tiers for a device.
+      description: 'Returns the payment tiers for a device. If a device has no service provider, this will return nothing. The tiers will be sorted by start_amount.'
+      operationId: getDeviceTiers
+      tags:
+        - Admin
+      produces:
+        - application/json
+      responses:
+        '200':
+          description: Tier response
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/device_rates'
+  '/devices/{device_id}/commands':
+    parameters:
+      - $ref: '#/parameters/device_id'
+    post:
+      summary: Send a command to a single device.
+      description: Send a command to a device.
+      operationId: addDeviceCommand
+      tags:
+        - Admin
+      parameters:
+        - name: commands
+          in: body
+          description: Array of device command objects to send
+          required: true
+          schema:
+            type: object
+            properties:
+              commands:
+                description: An array of commands
+                type: array
+                items:
+                  $ref: '#/definitions/command'
+      responses:
+        '200':
+          description: Command successfully added
+  '/devices/{device_id}/events':
+    parameters:
+      - $ref: '#/parameters/device_id'
+    get:
+      summary: Returns one or more device events objects.
+      description: Returns one or more device events objects.
+      operationId: getDeviceEvents
+      tags:
+        - Admin
+      produces:
+        - application/json
+      parameters:
+        - $ref: '#/parameters/since_datetime'
+        - $ref: '#/parameters/until_datetime'
+        - $ref: '#/parameters/sort_field'
+        - $ref: '#/parameters/sort_direction'
+        - $ref: '#/parameters/limit'
+        - $ref: '#/parameters/offset'
+        - name: event_type
+          in: query
+          description: 'Return only event types matching this bitmask (<a href="/constants.php?event_types" target="_new">Event Types</a>)'
+          type: integer
+      responses:
+        '200':
+          description: Events response
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/event'
+  '/devices/{device_id}/logs':
+    parameters:
+      - $ref: '#/parameters/device_id'
+    get:
+      summary: Returns one or more device log objects.
+      description: Returns one or more device log objects.
+      operationId: getDeviceLogs
+      tags:
+        - Admin
+      produces:
+        - application/json
+      parameters:
+        - $ref: '#/parameters/sort_field'
+        - $ref: '#/parameters/sort_direction'
+        - $ref: '#/parameters/limit'
+        - $ref: '#/parameters/offset'
+        - $ref: '#/parameters/since_datetime'
+        - $ref: '#/parameters/until_datetime'
+        - name: severity
+          in: query
+          description: Get log entries of this severity only
+          type: string
+          default: OK
+          enum:
+            - OK
+            - INFO
+            - WARNING
+            - SEVERE
+            - CAL
+      responses:
+        '200':
+          description: Logs response
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/log'
+  '/devices/{device_id}/calibrate':
+    parameters:
+      - $ref: '#/parameters/device_id'
+    get:
+      summary: Get current calibrate structure/object and/or state for this device_id
+      description: Get current calibrate structure/object and/or state for this device_id
+      operationId: getDeviceCalibration
+      tags:
+        - Admin
+      produces:
+        - application/json
+      responses:
+        '200':
+          description: Device calibration response
+          schema:
+            $ref: '#/definitions/calibrate'
+    post:
+      summary: Starts or restarts calibration of a device
+      description: Initialize a calibration object for a device. This does not start a calibration.
+      operationId: postDeviceCalibration
+      tags:
+        - Admin
+      produces:
+        - application/json
+      responses:
+        '201':
+          description: Success initializing calibration
+    patch:
+      summary: 'Send an event to the calibrate object, water_off, peak_start or peak_stop'
+      description: 'Send an event to the calibrate object, water_off, peak_start, peak_stop or peak_save'
+      tags:
+        - Admin
+      parameters:
+        - name: event
+          in: query
+          description: The calibrate event name reflecting the event that occurred
+          required: true
+          type: string
+          enum:
+            - WATER_OFF
+            - PEAK_START
+            - PEAK_STOP
+            - PEAK_SAVE
+        - name: gallons_filled
+          in: query
+          description: If provided use this value to indicate gallons filled overriding UNIT_MULTIPLIER_VOLUME of 1.0
+          required: false
+          type: float
+      produces:
+        - application/json
+      responses:
+        '200':
+          description: Calibration process successfully updated
+  /devices/{device_id}/expressions:
+    parameters:
+      - $ref: '#/parameters/device_id'
+    get:
+      description: Returns the expressions associated with the specified device_id
+      operationId: getDeviceExpressions
+      tags:
+        - Admin
+      responses:
+        default:
+          description: Default response and array of expression objects
+          schema:
+            $ref: '#/definitions/expressions'
+    post:
+      description: Creates a new expression for the device
+      operationId: addDeviceExpression
+      tags:
+        - Admin
+      parameters:
+        - name: expression
+          in: body
+          description: A new expression object
+          required: true
+          schema:
+            $ref: '#/definitions/expression'
+      responses:
+        '200':
+          description: Expression successfully added
+  '/devices/{device_id}/expressions/{expression_id}':
+    parameters:
+      - $ref: '#/parameters/device_id'
+      - $ref: '#/parameters/expression_id'
+    get:
+      description: Returns the specific expression for a device
+      operationId: getDeviceExpression
+      tags:
+        - Admin
+      responses:
+        default:
+          description: Default response and array of expression objects
+          schema:
+            $ref: '#/definitions/expression'
+    put:
+      description: Updates the expression identified by expression_id
+      operationId: updateDeviceExpression
+      tags:
+        - Admin
+      parameters:
+        - name: expression
+          in: body
+          description: An updated expression object
+          required: true
+          schema:
+            $ref: '#/definitions/expression'
+      responses:
+        '200':
+          description: Expressions successfully added
+    delete:
+      description: Deletes the expression identified by expression_id
+      operationId: deleteDeviceExpression
+      tags:
+        - Admin
+      responses:
+        '200':
+          description: Successfully deleted global expression
+  '/devices/{device_id}/events/{event_id}':
+    get:
+      description: Returns a specific event object for a device
+      operationId: getEventById
+      tags:
+        - Admin
+      parameters:
+        - $ref: '#/parameters/device_id'
+        - name: event_id
+          in: path
+          description: Fetch only this event_id
+          required: true
+          type: integer
+      responses:
+        '200':
+          description: Events response
+          schema:
+            $ref: '#/definitions/event'
+  /service_providers:
+    get:
+      summary: Returns all service providers.
+      description: Returns all service providers.
+      operationId: getservice_providers
+      tags:
+        - Admin
+      produces:
+        - application/json
+      parameters:
+        - $ref: '#/parameters/limit'
+        - $ref: '#/parameters/offset'
+      responses:
+        '200':
+          description: Service provider response
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/service_provider'
+    post:
+      summary: Adds a service provider.
+      description: Adds a service provider.
+      operationId: addservice_provider
+      tags:
+        - Admin
+      parameters:
+        - name: service_provider
+          in: body
+          required: true
+          description: The service provider to add
+          schema:
+            $ref: '#/definitions/service_provider_new'
+      responses:
+        '201':
+          description: Service provider successfully created
+          headers:
+            location:
+              description: Path to newly service provider
+              type: string
+  '/service_providers/{service_provider_id}':
+    parameters:
+      - $ref: '#/parameters/service_provider_id'
+    get:
+      summary: Returns a service provider.
+      description: Returns a service provider.
+      operationId: getServiceProviderById
+      tags:
+        - Admin
+      produces:
+        - application/json
+      responses:
+        '200':
+          description: Service provider response
+          schema:
+            $ref: '#/definitions/service_provider'
+    delete:
+      summary: Deletes a service provider.
+      description: Deletes a service provider.
+      operationId: deleteServiceProvider
+      tags:
+        - Admin
+      responses:
+        '200':
+          description: Service provider successfully deleted
+  '/service_providers/{service_provider_id}/rate_groups':
+    parameters:
+      - $ref: '#/parameters/service_provider_id'
+    get:
+      summary: Returns the provider rates groups associated with the service provider.
+      description: Returns the provider rate groups associated with the service provider.
+      operationId: getServiceProviderRateGroups
+      tags:
+        - Admin
+      produces:
+        - application/json
+      parameters:
+        - $ref: '#/parameters/limit'
+        - $ref: '#/parameters/offset'
+        - $ref: '#/parameters/sort_field'
+        - $ref: '#/parameters/sort_direction'
+      responses:
+        '200':
+          description: Service provider rate groups response
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/rate_group'
+    post:
+      summary: Add a rate group to a service provider.
+      description: Add a rate group to a service provider.
+      operationId: addServiceProviderRateGroup
+      tags:
+        - Admin
+      produces:
+        - application/json
+      parameters:
+        - name: rate_group
+          in: body
+          description: Provider rate group to add to the system
+          required: true
+          schema:
+            $ref: '#/definitions/rate_group_new'
+      responses:
+        '201':
+          description: Rate group successfully added to service provider
+          headers:
+            location:
+              description: Path to newly service provider rate group
+              type: string
+  '/service_providers/{service_provider_id}/rate_groups/{rate_group_id}':
+    parameters:
+      - $ref: '#/parameters/service_provider_id'
+      - $ref: '#/parameters/rate_group_id'
+    get:
+      summary: "Returns a service provider's rate group"
+      description: Returns a provider rate group.
+      operationId: getServiceProviderRateGroupById
+      tags:
+        - Admin
+      produces:
+        - application/json
+      responses:
+        '200':
+          description: Service provider rate group response
+          schema:
+            $ref: '#/definitions/rate_group'
+    patch:
+      summary: "Update a service provider's rate group"
+      description: "Update a service provider's rate group"
+      operationId: updateServiceProviderRateGroup
+      tags:
+        - Admin
+      produces:
+        - application/json
+      parameters:
+        - name: rate
+          in: body
+          description: Update the rate group to the one provided
+          required: true
+          schema:
+            $ref: '#/definitions/rate_group_new'
+      responses:
+        '200':
+          description: Service provider rate group successfully updated
+          headers:
+            location:
+              description: Path to newly updated provider rate group
+              type: string
+    delete:
+      summary: "Delete a service provider's rate group."
+      description: "Delete a service provider's rate group."
+      operationId: deleteServiceProviderRateGroup
+      tags:
+        - Admin
+      responses:
+        '200':
+          description: Service provider rate group successfully deleted
+  '/service_providers/{service_provider_id}/rate_groups/{rate_group_id}/rates':
+    parameters:
+      - $ref: '#/parameters/service_provider_id'
+      - $ref: '#/parameters/rate_group_id'
+    get:
+      summary: Returns the provider rates associated with the rate group.
+      description: Returns the provider rates associated with the rate group.
+      operationId: getServiceProviderRates
+      tags:
+        - Admin
+      produces:
+        - application/json
+      parameters:
+        - $ref: '#/parameters/limit'
+        - $ref: '#/parameters/offset'
+        - $ref: '#/parameters/sort_field'
+        - $ref: '#/parameters/sort_direction'
+      responses:
+        '200':
+          description: Service provider rates response
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/rate'
+    post:
+      summary: Add a rate to a service provider.
+      description: Add a rate to a service provider.
+      operationId: addServiceProviderRate
+      tags:
+        - Admin
+      produces:
+        - application/json
+      parameters:
+        - name: rate
+          in: body
+          description: Provider rate to add to the system
+          required: true
+          schema:
+            $ref: '#/definitions/rate_new'
+      responses:
+        '201':
+          description: Rate successfully added to service provider
+          headers:
+            location:
+              description: Path to newly service provider rate
+              type: string
+  '/service_providers/{service_provider_id}/{rate_group_id}/rates/{rate_id}':
+    parameters:
+      - $ref: '#/parameters/service_provider_id'
+      - $ref: '#/parameters/rate_group_id'
+      - $ref: '#/parameters/rate_id'
+    get:
+      summary: Returns a service provider rate.
+      description: Returns a provider rate.
+      operationId: getServiceProviderRateById
+      tags:
+        - Admin
+      produces:
+        - application/json
+      responses:
+        '200':
+          description: Service provider rate response
+          schema:
+            $ref: '#/definitions/rate'
+    patch:
+      summary: "Update a service provider's rate."
+      description: "Update a service provider's rate."
+      operationId: updateServiceProviderRate
+      tags:
+        - Admin In Progress
+      produces:
+        - application/json
+      parameters:
+        - name: rate
+          in: body
+          description: Update the rate to the one provided
+          required: true
+          schema:
+            $ref: '#/definitions/rate_new'
+      responses:
+        '200':
+          description: Service provider rate successfully updated
+          headers:
+            location:
+              description: Path to newly updated provider rate
+              type: string
+    delete:
+      summary: "Delete a service provider's rate."
+      description: "Delete a service provider's rate."
+      operationId: DeleteServiceProviderRate
+      tags:
+        - Admin In Progress
+      responses:
+        '200':
+          description: Service provider rate successfully deleted
+  '/service_providers/{service_provider_id}/service_cycle':
+    parameters:
+      - $ref: '#/parameters/service_provider_id'
+    get:
+      summary: Returns the service cycles for this utility.
+      description: Returns the service cycles for this utility.
+      operationId: getServiceProviderCycles
+      tags:
+        - Admin
+      produces:
+        - application/json
+      responses:
+        '200':
+          description: Service cycle response
+          schema:
+            $ref: '#/definitions/service_cycle'
+    post:
+      summary: Add a service cycle to a service provider.
+      description: Add a service cycle to a service provider.
+      operationId: addServiceProviderCycle
+      tags:
+        - Admin
+      produces:
+        - application/json
+      parameters:
+        - name: service_cycle
+          in: body
+          description: Service cycle to add to the service provider
+          required: true
+          schema:
+            $ref: '#/definitions/service_cycle_new'
+      responses:
+        '201':
+          description: Service cycle successfully added to service provider
+          headers:
+            location:
+              description: Path to newly service cycle
+              type: string
+  '/service_providers/{service_provider_id}/service_cycle/{service_cycle_id}':
+    parameters:
+      - $ref: '#/parameters/service_provider_id'
+      - $ref: '#/parameters/service_cycle_id'
+    get:
+      summary: "Returns a service provider's service cycle."
+      description: "Returns a service provider's service cycle."
+      operationId: getServicePeriodCycleById
+      tags:
+        - Admin
+      produces:
+        - application/json
+      responses:
+        '200':
+          description: Service cycle rate response
+          schema:
+            $ref: '#/definitions/service_cycle'
+    patch:
+      summary: "Update a service provider's service cycle."
+      description: "Update a service provider's service cycle"
+      operationId: updateServicePeriodCycle
+      tags:
+        - Admin
+      produces:
+        - application/json
+      parameters:
+        - name: service_cycle
+          in: body
+          description: Update the service cycle to the one provided
+          required: true
+          schema:
+            $ref: '#/definitions/service_cycle_new'
+      responses:
+        '200':
+          description: Service provider cycle successfully updated
+          headers:
+            location:
+              description: Path to newly updated service cycle
+              type: string
+    delete:
+      summary: "Delete a service provider's cycle."
+      description: "Delete a service provider's cycle."
+      operationId: deleteServiceProviderCycle
+      tags:
+        - Admin
+      responses:
+        '200':
+          description: Service provider cycle successfully deleted
+  '/service_providers/{service_provider_id}/users':
+    parameters:
+      - $ref: '#/parameters/service_provider_id'
+    get:
+      summary: Returns the users associated with a service provider.
+      description: Returns the users associated with the service provider.
+      operationId: getServiceProviderUsers
+      tags:
+        - Admin In Progress
+      produces:
+        - application/json
+      parameters:
+        - $ref: '#/parameters/limit'
+        - $ref: '#/parameters/offset'
+        - $ref: '#/parameters/sort_field'
+        - $ref: '#/parameters/sort_direction'
+      responses:
+        '200':
+          description: Users response
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/user'
+  '/service_providers/{service_provider_id}/devices':
+    parameters:
+      - $ref: '#/parameters/service_provider_id'
+    get:
+      summary: Returns the devices associated with the service provider.
+      description: Returns the devices associated with the service provider.
+      operationId: getServiceProviderDevices
+      tags:
+        - Admin In Progress
+      produces:
+        - application/json
+      parameters:
+        - $ref: '#/parameters/limit'
+        - $ref: '#/parameters/offset'
+        - $ref: '#/parameters/sort_field'
+        - $ref: '#/parameters/sort_direction'
+      responses:
+        '200':
+          description: Devices response
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/device_admin'
+definitions:
+  user_authenticate:
+    type: object
+    required:
+      - email_address
+      - password
+    properties:
+      email_address:
+        type: string
+      password:
+        type: string
+  user_patch:
+    type: object
+    properties:
+      email_address:
+        type: string
+      first_name:
+        type: string
+      last_name:
+        type: string
+      address_line1:
+        type: string
+      address_line2:
+        type: string
+      city:
+        type: string
+      state:
+        type: string
+      postal_code:
+        type: string
+      country:
+        type: string
+      phone:
+        type: string
+      mobile_phone:
+        type: string
+  user_new:
+    allOf:
+      - $ref: '#/definitions/user_patch'
+    required:
+      - password
+    properties:
+      password:
+        type: string
+  user:
+    allOf:
+      - $ref: '#/definitions/user_new'
+    required:
+      - id
+    properties:
+      id:
+        type: integer
+  service_provider_new:
+    type: object
+    required:
+      - name
+      - services
+      - cycle_type
+    properties:
+      name:
+        type: string
+      services:
+        type: array
+        description: Type of billing cycles this provider offers.
+        items:
+          type: string
+          enum:
+            - Water
+            - Gas
+            - Sewer
+            - Electric
+            - Trash
+            - Internet
+            - Cellular Voice
+            - Cellular Data
+            - Gardening
+            - Security
+      cycle_type:
+        type: array
+        description: The type of billing cycles this provider offers.
+        items:
+          type: string
+          enum:
+            - fixed
+            - user
+      user_id:
+        type: integer
+        description: "Reference to service provider's user object."
+  service_provider:
+    allOf:
+      - $ref: '#/definitions/service_provider_new'
+    required:
+      - id
+    properties:
+      id:
+        type: integer
+      user_id:
+        type: integer
+  device_new:
+    type: object
+    required:
+      - device_type
+    properties:
+      user_id:
+        type: integer
+      provider_id:
+        type: integer
+      service_cycle_id:
+        type: integer
+      device_type:
+        type: string
+  device:
+    description: 'Device object containing read only properties, read only state{} and read/write settings{}, non-admin'
+    type: object
+    properties:
+      device_id:
+        description: The device_id as baked into its firmware
+        type: integer
+        format: int64
+      device_type:
+        description: 'The type of this device (<a href="/constants.php?device_types" target="_new">Device Types</a>)'
+        type: integer
+      capability:
+        description: 'The capabilities of this device - 1 = Bridge, 2 = Sensor'
+        type: integer
+      geo:
+        $ref: '#/definitions/geo'
+      user:
+        $ref: '#/definitions/device_user_settings'
+      state:
+        $ref: '#/definitions/state'
+    example:
+      device_id: 150053
+      device_type: 2
+      capability: 2
+      geo:
+        type: Point
+        coordinates:
+          - -120.680102
+          - 35.296378
+      user:
+        bridge_id: 100050
+        user_id: 1502
+        provider_id: 6502
+        base_bucket: 3
+        unit_multipler: 0.03493
+        rate_group_id: 1499
+        cycle_budget: 10000
+      state:
+        calibrated: true
+        rf_rssi: -89
+        batt_level: 89.25
+  device_admin:
+    description: 'Device object containing read only properties, read only state{} and read/write settings{}'
+    type: object
+    allOf:
+      - $ref: '#/definitions/device'
+    properties:
+      interfaces:
+        description: The internal interfaces this device is configured to use
+        type: array
+        items:
+          type: object
+      deploy_datetime:
+        description: The MongoDB ISODate() date-time this device was first deployed
+        type: string
+        format: date-time
+      firmware:
+        description: The current firmware version of this device
+        type: integer
+      hardware:
+        description: The current hardware version of this device
+        type: integer
+      settings:
+        $ref: '#/definitions/settings'
+    example:
+      device_id: 150053
+      device_type: 2
+      capability: 2
+      interfaces: []
+      deploy_datetime: '2016-02-28T20:15:06.918+0000'
+      firmware: 10012
+      hardware: 10000
+      geo:
+        type: Point
+        coordinates:
+          - -120.680102
+          - 35.296378
+      settings:
+        SETTING_SAMPLE_INTERVAL_MS: 30000
+        SETTING_KEEPALIVE_INTERVAL_MS: 60000
+        SETTING_SLEEP_INTERVAL_MS: 300000
+        SETTING_TRANSPORT: 32
+        SETTING_EVENT_TYPES: 278515
+        SETTING_STATE_TYPES: 9781
+      user:
+        bridge_id: 100050
+        user_id: 1502
+        provider_id: 6502
+        base_bucket: 3
+        unit_multipler: 0.03493
+        rate_group_id: 1499
+        cycle_budget: 10000
+      state:
+        calibrated: true
+        rf_rssi: -89
+        batt_level: 89.25
+        extra:
+          cpu_load: 10.25
+          free_mem: 0.2
+          wifi_rssi: -75.8
+  geo:
+    description: A GeoJSON Point object
+    type: object
+    required:
+      - type
+      - coordinates
+    properties:
+      type:
+        description: The type of GeoJSON object
+        type: string
+        default: Point
+      coordinates:
+        description: An array of point coordinates for this GeoJSON object
+        type: array
+        items:
+          type: number
+          format: float
+    example:
+      type: Point
+      coordinates:
+        - -120.680102
+        - 35.296378
+  settings:
+    description: Device settings object
+    type: object
+    properties:
+      SETTING_SAMPLE_INTERVAL_MS:
+        description: The interval in milliseconds this device should send samples
+        type: integer
+        default: 30000
+      SETTING_KEEPALIVE_INTERVAL_MS:
+        description: The keepalive interval in milliseconds which a device will send a keepalive ping to a bridge or to the Device API if directly connected
+        type: integer
+        default: 60000
+      SETTING_SLEEP_INTERVAL_MS:
+        description: The  interval in milliseconds that a sensor device should go to sleep if no samples are available to transmit
+        type: integer
+        default: 300000
+      SETTING_TRANSPORT:
+        description: 'The transport this device should use to communicate with Device API (<a href="/constants.php?transport_types" target="_new">Transport Types</a>)'
+        type: integer
+      SETTING_EVENT_TYPES:
+        description: 'The event types this device should track and report to Device API (<a href="/constants.php?event_types" target="_new">Event Types</a>)'
+        type: integer
+      SETTING_STATE_TYPES:
+        description: 'The state (statistic) types this device should track and report to Device API (<a href="/constants.php?state_types" target="_new">State Types</a>)'
+        type: integer
+    example:
+      SETTING_SAMPLE_INTERVAL_MS: 30000
+      SETTING_KEEPALIVE_INTERVAL_MS: 60000
+      SETTING_SLEEP_INTERVAL_MS: 300000
+      SETTING_TRANSPORT: 32
+      SETTING_EVENT_TYPES: 278515
+      SETTING_STATE_TYPES: 9781
+  device_user_settings:
+    description: User configurable settings object
+    type: object
+    properties:
+      bridge_id:
+        description: The bridge_id if this device is behind a bridge
+        type: integer
+        format: int64
+      user_id:
+        description: The user_id this device is currently associated to
+        type: integer
+        format: int64
+        default: 1500
+      provider_id:
+        description: The provider_id this device is currently associated to
+        type: integer
+      base_bucket:
+        description: 'The smallest resolution time series bucket that this device will populate with samples (<a href="/constants.php?intervals" target="_new">Intervals</a>)'
+        type: integer
+        default: 3
+      unit_multiplier:
+        description: A value to apply to requests to accurately reflect units after a calibration. Formerly calibration_offset
+        type: number
+        format: float
+        default: 0
+      rate_group_id:
+        type: integer
+        description: The rate group this device subscribes to.
+      cycle_budget:
+        type: integer
+        description: Budget for this period (in gallons for now)
+    example:
+      bridge_id: 100050
+      user_id: 1502
+      provider_id: 6502
+      base_bucket: 3
+      unit_multipler: 0.03493
+      rate_group_id: 1499
+      cycle_budget: 10000
+  state:
+    description: Device state object containing read only statistical values
+    type: object
+    properties:
+      calibrated:
+        description: Whether the device has been calibrated or not
+        type: boolean
+      rf_rssi:
+        description: Last RSSI (Received Signal Strength Indicator) of a RF link
+        type: number
+        format: float
+      batt_level:
+        description: Current battery level percentage (1.00 - 100.00)
+        type: number
+        format: float
+      extra:
+        description: Empty object to be populated with additional non-standard device info
+        type: object
+    example:
+      calibrated: true
+      rf_rssi: -89
+      batt_level: 89.25
+      extra:
+        cpu_load: 10.25
+        free_mem: 0.2
+        wifi_rssi: -75.8
+  calibrate:
+    description: Calibrate object containing device state and values during device calibration
+    type: object
+    properties:
+      datetime:
+        description: The datetime this structure was initialized/created
+        type: string
+        format: date-time
+      water_off:
+        type: object
+        properties:
+          datetime:
+            description: The datetime the UI indicated user turned off water during sensor calibration
+            type: string
+            format: date-time
+          values:
+            description: An array of data samples collected for this device while in calibration mode between post and water_off event
+            type: array
+            items:
+              type: number
+      peak_start:
+        type: object
+        properties:
+          datetime:
+            description: The datetime the UI indicated user turned on water for peak calibration
+            type: string
+            format: date-time
+          values:
+            description: An array of data samples collected for this device while in calibration mode between water_off and peak_start events
+            type: array
+            items:
+              type: number
+      peak_stop:
+        type: object
+        properties:
+          datetime:
+            description: The datetime the UI indicated user turned off water for peak calibration
+            type: string
+            format: date-time
+          values:
+            description: An array of data samples collected for this device while in calibration mode between peak_start and peak_stop events
+            type: array
+            items:
+              type: number
+      values:
+        description: An array of data samples collected for this device while in calibration mode
+        type: array
+        items:
+          type: number
+      last_value:
+        description: The last sample value collected for this device
+        type: number
+    example:
+      datetime: '2016-03-15T013:12:21.483+0000'
+      water_off:
+        datetime: '2016-03-15T013:12:25.301+0000'
+        values:
+          - 12.75
+          - 11.5
+      peak_start:
+        datetime: '2016-03-15T013:12:40.011+0000'
+        values:
+          - 12.25
+          - 11.12
+          - 11.15
+          - 11.09
+          - 11.17
+      peak_stop:
+        datetime: '2016-03-15T013:13:16.020+0000'
+        values:
+          - 12.25
+          - 11.12
+          - 11.15
+          - 11.09
+          - 11.17
+      values:
+        - 10.52
+        - 10.11
+        - 10.15
+  notification:
+    type: object
+    required:
+      - id
+      - device_id
+      - severity
+      - message
+    properties:
+      id:
+        type: integer
+      created_dt:
+        type: string
+        format: date-time
+      device_id:
+        type: integer
+      severity:
+        type: string
+      message:
+        type: string
+  query_result:
+    type: object
+    properties:
+      request_id:
+        type: array
+        items:
+          type: object
+          properties:
+            datetime:
+              description: The datetime for the associated value
+              type: string
+              format: date-time
+            value:
+              type: number
+    example:
+      5705766de1914:
+        - datetime: '2016-02-01T00:00:00.000+0000'
+          value: 14040
+        - datetime: '2016-02-02T00:00:00.000+0000'
+          value: 11000
+        - datetime: '2016-02-03T00:00:00.000+0000'
+          value: 12000
+      5705766de19bb:
+        - value: 11400
+  rate_group_new:
+    type: object
+    required:
+      - name
+    properties:
+      name:
+        type: string
+  rate_group:
+    allOf:
+      - $ref: '#/definitions/rate_group_new'
+    required:
+      - id
+      - provider_id
+    properties:
+      id:
+        type: integer
+      provider_id:
+        type: integer
+  rate_new:
+    type: object
+    required:
+      - name
+      - unit
+      - service_type
+      - type
+      - multiplier
+      - unit_rate
+      - currency
+      - start_amount
+      - end_amount
+    properties:
+      name:
+        type: string
+      unit:
+        type: string
+        description: Unit of measurement applicable to this rate.
+        enum:
+          - Gallons
+          - Hundred Cubic Feet
+          - Cubic Yards
+          - Litres
+          - Kilowatt Hours
+          - Bytes
+          - Megabytes
+          - Gigabytes
+          - Punds
+          - Ounces
+        default: Gallons
+      service_type:
+        type: string
+        description: The service type this rate applies to
+        enum:
+          - Water
+          - Electric
+          - Gas
+          - Internet
+        default: Water
+      type:
+        type: string
+        description: Whether the unit is fixed or per unit
+        enum:
+          - Fixed
+          - Per Unit
+      multiplier:
+        type: integer
+        description: Multiplier of unit for this rate if applicable.
+      unit_rate:
+        type: integer
+        description: 'Rate for unit * multiplier.'
+      currency:
+        type: string
+        description: Currency of unit rate.
+        enum:
+          - USD
+          - CAD
+          - GBP
+          - NZD
+          - AUD
+          - HKD
+          - EUR
+      start_amount:
+        type: integer
+        description: Starting number of units for this tier/rate to apply.
+      end_amount:
+        type: integer
+        description: Ending number of units for this tier/rate to apply.
+  rate:
+    allOf:
+      - $ref: '#/definitions/rate_new'
+    required:
+      - id
+      - rate_group_id
+    properties:
+      id:
+        type: integer
+      rate_group_id:
+        type: integer
+  device_rates:
+    type: object
+    required:
+      - rate_group_name
+      - rates
+    properties:
+      rate_group_name:
+        type: string
+        description: Name of the rate group
+      rates:
+        type: array
+        description: Rates in the rate group.
+        items:
+          $ref: '#/definitions/rate'
+  service_cycle_new:
+    type: object
+    required:
+      - period_type
+      - start_period_day
+      - end_period_day
+      - start_month
+    properties:
+      period_type:
+        type: string
+        enum:
+          - biennially
+          - annually
+          - biannually
+          - quarterly
+          - biquarterly
+          - bimonthly
+          - monthly
+          - semimonthly
+          - biweekly
+          - weekly
+      start_period_day:
+        type: integer
+        description: Day of the month (1-31) that marks beginning of period
+      end_period_day:
+        type: integer
+        description: Day of the month (1-31) that marks the ending of period
+      start_month:
+        type: integer
+        description: 'Start month (1-12) that start_day_of_period correlates to, only used for period_type > monthly'
+  service_cycle:
+    allOf:
+      - $ref: '#/definitions/service_cycle_new'
+    required:
+      - id
+    properties:
+      id:
+        type: integer
+  service_period:
+    type: object
+    required:
+      - since_datetime
+      - until_datetime
+      - usage
+      - spent
+    properties:
+      since_datetime:
+        description: Datetime of when this period starts
+        type: string
+        format: date-time
+      until_datetime:
+        description: Datetime of when this period starts
+        type: string
+        format: date-time
+      usage:
+        description: The amount of usage this period.
+        type: number
+      spent:
+        description: 'The monetary amount spend for this period, uses the rates set for this device.'
+        type: number
+    example:
+      since_datetime: '2016-03-02T00:00:00'
+      until_datetime: '2016-04-10T23:59:59'
+      usage: 7000
+      spent: 45.67
+  queries:
+    type: object
+    properties:
+      queries:
+        type: array
+        description: Array of queries.
+        items:
+          $ref: '#/definitions/query'
+  query:
+    description: Parameters for a /query call
+    type: object
+    required:
+      - bucket
+      - request_id
+    properties:
+      bucket:
+        description: "The bucket we are querying (<a href=\"/constants.php?intervals\" target=\"_new\">Intervals</a>)'(FILTER)"
+        type: integer
+      since_datetime:
+        description: 'Restrict the query range to data samples since this datetime. For beta use PDT with no offset Defaults to FLUME_EPOCH = "2000-01-01T00:00:00" (FILTER)'
+        type: string
+        format: date-time
+      until_datetime:
+        description: Restrict the query range to data samples until this datetime. For beta use PDT with no offset. Defaults to now() (FILTER)
+        type: string
+        format: date-time
+      group:
+        description: Group results by this field (NOT CURRENTLY USED)
+        type: integer
+      group_multiplier:
+        description: Apply this multiplier to the grouping. Defaults to 1.
+        type: number
+      operation:
+        description: The optional type of aggregate/accumulate operation to perform. Defaults to null
+        type: string
+      raw:
+        description: For debugging purposes, true to not apply unit_multiplier to values returned
+        type: boolean
+        default: false
+      request_id:
+        description: request_id
+        type: integer
+      sort_direction:
+        description: Ascending and descending supported. Which way to sort the results.
+        default: ASC
+        enum:
+          - ASC
+          - DESC
+    example:
+      bucket: DAY
+      since_datetime: '2016-03-01T00:00:00'
+      until_datetime: '2016-03-10T00:00:00'
+      request_id: 5705766de1914
+  commands:
+    type: object
+    properties:
+      commands:
+        type: array
+        description: Array of commands.
+        items:
+          description: Composite command with device id array
+          allOf:
+            - $ref: '#/definitions/command'
+          properties:
+            device_id:
+              type: array
+              items:
+                type: integer
+  command:
+    description: Command object without device_id
+    type: object
+    properties:
+      command:
+        type: integer
+        description: 'The device command to send to the specified device_id (<a href="/constants.php?device_commands" target="_new">Device Commands</a>)'
+      args:
+        type: object
+        description: An undefined object containing key/value arguments to be passed to this command.
+  log:
+    description: Device log object
+    type: object
+    properties:
+      timestamp:
+        description: The string name of this message constant
+        type: string
+      datetime:
+        description: The integer code value of this message constant
+        type: integer
+      severity:
+        description: 'The group type of this message (ERROR, NOTICE, INFO)'
+        type: string
+      message:
+        description: The API message string
+        type: string
+    example:
+      timestamp: 1460298080845
+      datetime: '2016-04-10 14:21:20.845'
+      severity: OK
+      message: Log message
+  event:
+    description: Device event object
+    type: object
+    properties:
+      event_id:
+        description: The ObjectID of this event
+        type: string
+      datetime:
+        description: The datetime this event occurred
+        type: string
+        format: date-time
+      event_type:
+        description: 'The event_type constant of this event object (<a href="/constants.php?event_types" target="_new">Event Types</a>)'
+        type: integer
+      extra:
+        description: An undefined (arbitrary) object containing event data or device state information at the time of the event.
+        type: object
+    example:
+      event_id: 56d8cf38e50eb725ff70e477
+      datetime: '2016-02-28T20:15:06.918+0000'
+      event_type: 8
+      extra:
+        wifi_rssi: -111.1
+        cpu_load: 25.22
+  hardware:
+    description: Hardware profile
+    type: object
+    properties:
+      hardware_id:
+        description: The ObjectId of this hardware profile
+        type: string
+      device_type:
+        description: 'The device_type of this hardware profile (<a href="/constants.php?device_types" target="_new">Device Types</a>)'
+        type: integer
+        format: int32
+      name:
+        description: The name of this hardware profile
+        type: string
+      manufacturer:
+        description: The manufacturer of this hardware
+        type: string
+      design_datetime:
+        description: The datetime this hardware design was completed
+        type: string
+        format: date-time
+      manufacture_datetime:
+        description: The datetime this hardware was first manufactured
+        type: string
+        format: date-time
+      deploy_datetime:
+        description: The datetime this hardware was first deployed
+        type: string
+        format: date-time
+      revision:
+        description: The revision of this hardware
+        type: string
+      features:
+        description: An array of hardware feature objects
+        type: array
+        items:
+          type: object
+          properties:
+            name:
+              description: The name of this feature
+              type: string
+            constant:
+              description: The constant value of this feature
+              type: number
+            value:
+              description: The value of this feature (if applicable)
+              type: number
+    example:
+      hardware_id: 56fc647ee95db4d4423ca1c3
+      device_type: 1
+      name: 900 MHz Bridge/Arduino
+      manufacturer: Flumetech
+      design_datetime: '2015-09-01T05:49:43'
+      manufacture_datetime: '2015-09-03T07:36:35'
+      deploy_datetime: '2015-09-05T19:34:41'
+      revision: R1.2.3-HW-SH7
+      features:
+        - name: FEATURE_CPU_CLOCK
+          constant: 1
+          value: 266
+        - name: FEATURE_MEM_BYTES
+          constant: 2
+          value: 4194304
+        - name: FEATURE_FLASH_BYTES
+          constant: 4
+          value: 8388608
+        - name: FEATURE_SERIAL_ID
+          constant: 32768
+          value: 1
+        - name: FEATURE_RF_900
+          constant: 32
+          value: 1
+        - name: FEATURE_WIFI_2G
+          constant: 64
+          value: 1
+        - name: FEATURE_INT_RS232
+          constant: 8192
+          value: 1
+        - name: FEATURE_PWR_AC
+          constant: 512
+          value: 1
+  firmware:
+    description: Firmware profile
+    type: object
+    properties:
+      firmware_id:
+        description: The ObjectId of this firmware profile
+        type: string
+      device_type:
+        description: 'The device_type of this firmware profile (<a href="/constants.php?device_types" target="_new">Device Types</a>)'
+        type: integer
+        format: int32
+      release_datetime:
+        description: The datetime this firmware release was completed
+        type: string
+        format: date-time
+      deploy_datetime:
+        description: The datetime this firmware was first deployed
+        type: string
+        format: date-time
+      release_notes:
+        description: Release notes of this firmware version
+        type: string
+      version:
+        description: The version of this firmware
+        type: string
+      versions:
+        description: The various versions of this firmware
+        type: object
+        properties:
+          ota_version:
+            type: string
+          rfm_version:
+            type: string
+      hardware:
+        description: An array of hardware profiles that this firmware is compatible with
+        type: array
+        items:
+          type: string
+      firmware:
+        description: An array of firmware profiles that this firmware is compatible with
+        type: array
+        items:
+          type: string
+      defaults:
+        description: An array of default settings to provide when this firmware is deployed
+        type: object
+      example:
+        firmware_id: 56fc647ee95db4d4423ca1c3
+        device_type: 1
+        release_datetime: '2015-09-01T05:49:43'
+        deploy_datetime: '2015-09-05T19:34:41'
+        release_notes: This is the initial firmware release for Flume bridge devices
+        version: '100001'
+        versions:
+          ota_version: '10001'
+          rfm_version: '10001'
+        hardware:
+          - 56fc647ee95db4d4423ca1c3
+        firmware:
+          - 56fc64e9e95db4d4423ca1c8
+        defaults:
+          SETTING_TRANSPORT: 33
+          SETTING_EVENT_TYPES: 4456765
+          SETTING_STATE_TYPES: 124554
+          SETTING_PROVISIONING_PATH: /provisioning
+          SETTING_PUB_PATH: /frames
+          SETTING_SUB_PATH: /responses
+          SETTING_MQTT_HOST: staging.flumetech.com
+          SETTING_HTTP_HOST: device.staging.flumetech.com
+          SETTING_RFM69_PROFILE: 0
+          SETTING_STATE_INTERVAL_MS: 60000
+          SETTING_ACTIVE_TX_DELAY_COUNT: 10000
+          SETTING_SAMPLE_INTERVAL_MS: 30000
+  expressions:
+      description: Array of event expression objects
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/definitions/expression'
+  expression:
+    description: Event expression
+    type: object
+    properties:
+      expression_id:
+        description: The ObjectId of this expression
+        type: string
+      name:
+        description: The name of this expression
+        type: string
+      description:
+        description: A description of this expression
+        type: string
+      device_type:
+        description: The device_type this expression applies to
+        type: integer
+        format: int32
+      value_type:
+        description: 'The value_type of this expression which indicates what type of data this expression will apply to. USAGE = 1, EVENT = 2, STATE = 3'
+        type: string
+        enum:
+          - USAGE
+          - EVENT
+          - STATE
+      value_type_name:
+        description: 'The name of this  value_type. USAGE = 1, EVENT = 2, STATE = 3'
+        type: string
+      type:
+        description: 'The interval/period type of this expression. FIXED = 1, RECURRING = 2, ROLLING = 3'
+        type: string
+        enum:
+          - FIXED
+          - RECURRING
+          - ROLLING
+      type_name:
+        description: 'The interval/period type name of this expression type. FIXED = 1, RECURRING = 2, ROLLING = 3'
+        type: string
+      state:
+        description: 'The current state of this expression. 0 = DISABLED, 1 = ENABLED'
+        type: integer
+      notification_count:
+        description: The current count of notifications that have been dispatched
+        type: integer
+      notification_limit:
+        description: The maximum number of notifications to be sent when this expression evaluates to true
+        type: integer
+      notification_interval:
+        description: The number of seconds between notification dispatches
+        type: integer
+      notification_target:
+        description: The targets to notify if this expression evaluates to true. USER = 1, ADMIN = 2, BOTH = 3.
+        type: string
+      severity:
+        description: A severity level of this expression INFO = 1, WARNING = 2, SEVERE = 3
+        type: string
+      lhs:
+        description: The Left Hand Side of the expression to evaluate
+        $ref: '#/definitions/expression_side'
+      condition:
+        description: 'The condition of the expression to evaluate. == : 1, > : 2, >= : 3, < : 4, <= : 5, % : 6'
+        type: integer
+      condition_name:
+        description: 'The condition name of the expression to evaluate. == : 1, > : 2, >= : 3, < : 4, <= : 5, % : 6'
+        type: string
+      rhs:
+        description: The Right Hand Side of the expression to evaluate
+        $ref: '#/definitions/expression_side'
+      or:
+        type: string
+        description: ObjectId of an expression to chain as an OR to this expression being evaluated
+      and:
+        type: string
+        description: ObjectId of an expression to chain as an AND to this expression being evaluated
+  expression_side:
+    description: A Left Hand or Right Hand Side of an expression to be evaluated by the event engine
+    type: object
+    properties:
+      event_type:
+        description: 'If this expression is of value_type EVENT (2), then this property will reflect the event_type being evaluated. (<a href="/constants.php?event_types" target="_new">Event Types</a>)'
+        type: integer
+      state_type:
+        description: 'If this expression is value_type STATE (3), then this property will reflect the state_type being evaluated. (<a href="/constants.php?state_types" target="_new">State Types</a>)'
+        type: integer
+      value:
+        description: 'This property can be one of: 1) A value derived from a query using this expression side properties (operation, bucket, etc), 2) A user provided value to evaluate against, 3) As a USAGE (or other) counter to evaluate against an regularly updated value, similarly to a user provided value.'
+        type: string
+      bucket:
+        description: 'If this expression is of value_type USAGE (1), then this property will reflect the time series bucket to look at when performing a query to obtain this expression side value. (MIN, HR, etc).'
+        type: string
+      operation:
+        description: 'If this expression is of value_type USAGE (1), then this property will reflect the operation to perform to obtain this expression side value.'
+        type: string
+      range_start:
+        description: If this expression is of value_type USAGE (1) and this expression is of type ROLLING (3) this property reflects the offset of buckets to look into for performing a query.
+        type: integer
+      range_end:
+        description: If this expression is of value_type USAGE (1) and this expression is of type ROLLING (3) this property reflects the offset of buckets to look into for performing a query.
+        type: integer
+      child_range_span:
+        description: 'If this expression is of value_type USAGE (1) and this expression is of type ROLLING (3) this property reflects the number of child buckets (if MIN, child = HR) the range limits of this query will span'
+        type: integer
+      since_datetime:
+        description: If this expression is of value_type USAGE (1) and this expression is of type FIXED (1) or RECURRING (2) this property reflects the since datetime of the query to perform. IF this expression type is RECURRING (2) this property gets reset when time crosses outside of since and until. If this expression type is ROLLING (3) this property reflects the since/start datetime that the rolling period begins.
+        type: string
+      until_datetime:
+        description: If this expression is of value_type USAGE (1) and this expression is of type FIXED (1) or RECURRING (2) this property reflects the until datetime of the query to perform. IF this expression type is RECURRING (2) this property gets reset when time crosses outside of since and until.
+        type: string
